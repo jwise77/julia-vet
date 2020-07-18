@@ -105,4 +105,44 @@ function ang_weights_mu(nmu, verbose=false)
     
 end
 
-w, mu, th = ang_weights_mu(12, true)
+function interp_coef(dtaum, dtaup, linear=false)
+    # Kunasz & Auer (1988), Equations (7a) - (9c)
+    u0(x) = 1 - exp(-x)
+    u1(x) = x - u0(x)
+    u2(x) = x^2 - 2*u1(x)
+    if linear
+        psi0 = u1(dtaum) / dtaum
+        psim = u0(dtaum) - psi0
+        psip = 0.0
+    else
+        # second-order interpolation
+        psi0 = ((dtaum + dtaup) * u1(dtaum) - u2(dtaum)) / (dtaum * dtaup)
+        psim = u0(dtaum) + (u2(dtaum) - (dtaup + 2*dtaum) * u1(dtaum)) / (dtaum * (dtaum + dtaup))
+        psip = (u2(dtaum) - dtaum * u1(dtaum)) / (dtaup * (dtaum + dtaup))
+    end
+    return psi0, psim, psip
+end
+
+function interp_coef_overshoot(dtaum, dtaup, case=0)
+    # Hayek et al. (2010) Appendix A
+    u0(x) = 1 - exp(-x)
+    u1(x) = x - u0(x)
+    u2(x) = x^2 - 2*u1(x)
+    if case == 0
+        # if S0 (cell center) is the extremum, choose S0 as the control point in the Bezier curve
+        psi0 = 2 * dtaum * u1(dtaum) - u2(dtaum) / dtaum^2
+        psim = u0(dtaum) - psi0
+        psip = 0.0
+    else
+        # if Sc is outside the data range (i.e. overshooting), choose the upwind point as the control point
+        psi0 = u2(dtaum) / dtaum^2
+        psim = u0(dtaum) - psi0
+        psip = 0.0
+    end
+    return psi0, psim, psip
+end
+
+# TODO (Equation A.3 in Hayek+ 2010): Interpolation for optical depth
+
+
+#w, mu, th = ang_weights_mu(12, true)
