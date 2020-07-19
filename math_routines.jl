@@ -136,7 +136,7 @@ function bezier_interp_coef(s0, sm, sp, dtaum, dtaup, linear=false)
             psi0 = 2 * dtaum * u1(dtaum) - u2(dtaum) / dtaum^2
             psim = u0(dtaum) - psi0
             psip = 0.0
-        else if sc < min(sm,s0) && sc > max(sm,s0)
+        else if sc < min(sm,s0) || sc > max(sm,s0)
             # if Sc is outside the data range (i.e. overshooting), choose the upwind point as the control point
             psi0 = u2(dtaum) / dtaum^2
             psim = u0(dtaum) - psi0
@@ -152,7 +152,7 @@ function bezier_interp_tau(chi0, chim, chip, dsm, dsp)
     # Limit overshooting
     if max(chim, chi0, chip) == chi0
         chic = chi0
-    else if chic < min(chim, chi0) && chic > max(chim, chi0)
+    else if chic < min(chim, chi0) || chic > max(chim, chi0)
         chic = chim
     end
     ds = dsm + dsp
