@@ -161,4 +161,79 @@ function bezier_interp_tau(chi0, chim, chip, dsm, dsp)
     return dtau
 end
 
+function interp_zero(f0,f1,dx)
+    if dx < 0.5
+        return f0
+    else
+        return f1
+    end
+end
+
+function interp_linear(f0,f1,dx)
+    return f0 + (f1-f0) * dx
+end
+
+function interp_quad(f0,f1,dx)
+    return 0
+end
+
+function interp_cubic(f0,f1,dx)
+    return 0
+end
+
+function interp_multi(f, x)
+    return 0
+end
+
+function interp_recursive(f, x, order=1)
+    if order == 0:
+        interp_fn = interp_zero
+    else if order == 1
+        interp_fn = interp_linear
+    else if order == 2:
+        interp_fn = interp_quad
+    else if order == 3:
+        interp_fn = interp_cubic
+    idx = Int32(div(x,1))
+    dx = mod(x,1)
+    if ndims(f) == 1
+        f0 = f[idx]
+        f1 = f[idx+1]
+        result = interp_fn(f0,f1,dx) 
+    else if ndims(f) == 2
+        f00 = f[idx[0],   idx[1]]
+        f01 = f[idx[0],   idx[1]+1]
+        f10 = f[idx[0]+1, idx[1]]
+        f11 = f[idx[0]+1, idx[1]+1]
+        fx0 = interp_fn(f00,f10,dx[0]) 
+        fx1 = interp_fn(f01,f11,dx[0])
+        result = interp_fn(fx0,fx1,dx[1])
+    else if ndims(f) == 3
+        f000 = f[idx[0],   idx[1]  , idx[2]]
+        f010 = f[idx[0],   idx[1]+1, idx[2]]
+        f100 = f[idx[0]+1, idx[1]  , idx[2]]
+        f110 = f[idx[0]+1, idx[1]+1, idx[2]]
+        f001 = f[idx[0],   idx[1]  , idx[2]+1]
+        f011 = f[idx[0],   idx[1]+1, idx[2]+1]
+        f101 = f[idx[0]+1, idx[1]  , idx[2]+1]
+        f111 = f[idx[0]+1, idx[1]+1, idx[2]+1]
+        fx00 = interp_fn(f000,f100,dx[0])
+        fx01 = interp_fn(f001,f101,dx[0])
+        fx10 = interp_fn(f010,f110,dx[0])
+        fx11 = interp_fn(f011,f111,dx[0])
+        fy0 = interp_fn(fx00,fx10,dx[1])
+        fy1 = interp_fn(fx01,fx11,dx[1])
+        result = interp_fn(fy0,fy1,dx[2])
+    end
+    return result
+end
+
+function interpolate(f, x, order=1, multi=false)
+    if multi
+        interp_multi(f, x)
+    else
+        interp_recursive(f, x, order=order)
+    end
+end
+
 #w, mu, th = ang_weights_mu(12, true)
