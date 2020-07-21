@@ -7,7 +7,7 @@
 # Athena-RT (Davis et al. 2012) uses up to nmu=12
 # Results in a na = nmu*(nmu+2) total number of rays
 
-using Printf
+using Printf, StructArrays
 
 function ang_weights_mu(nmu, verbose=false)
 
@@ -165,25 +165,45 @@ end
 Grid interpolation routines for upstream / downstream ray values
 =#
 
-function interp_zero(f0,f1,dx)
-    if dx < 0.5
-        return f0
-    else
-        return f1
+struct field_deriv{T<:Real}
+    ndims::Int
+    size::Tuple
+    left::Array{T}
+    right::Array{T}
+end
+
+function grid_deriv(f)
+    nd = ndims(f)
+    ns = size(f)
+    vec_size = Tuple(Base.Iterators.flatten((ns,nd)))
+    fprime = field_deriv(nd, ns, zeros(vec_size), zeros(vec_size))
+    for i in 1:nd
+        shift = zeros(Int,nd)
+        shift[i] = 1
+        fprime.left[:,:,i]  = f - circshift(f,shift)
+        fprime.right[:,:,i] = circshift(f,-shift) - f
     end
+    return fprime
 end
 
-function interp_linear(f0,f1,fl,fr,dx)
-    # fl, fr unused: included to have same signature as other interp methods
-    return f0 + (f1-f0) * dx
+function interp_zero(f,fp,dx)
+    # Nearest neighbor
+    return 0
 end
 
-function interp_quad(f0,f1,fl,fr,dx)
+function interp_linear(f,fp,dx)
+    # Linear Interpolation in 1D (sweeps)
+    result = Array{Float}(undef,size(dx)[1])
+    @. result = f[:]
+    #return f0 + (f1-f0) * dx
+end
+
+function interp_quad(f,fp,dx)
     # Monotonic quadratic (Hayek+ 2010, Appendix B)
     return 0
 end
 
-function interp_cubic(f0,f1,fl,fr,dx)
+function interp_cubic(f,fp,dx)
     # Monotonic cubic (Hayek+ 2010, Appendix B)
     return 0
 end
@@ -198,30 +218,17 @@ function interpolate(f, x, order=1)
     elseif order == 3
         interp_fn = interp_cubic
     end
-    idx = Int32(div(x,1))
-    dx = mod(x,1)
-    vec_size = Tuple(collect(Base.Iterators.flatten(size(f),ndims(f))))
-    # Left and right derivative
-    fl = zeros(vec_size)
-    fr = zeros(vec_size)
+    idx = Int32(div.(x,1))[:]
+    dx = mod.(x,1)[:]
+    nx = size(x)[1]
+    # Left and right derivatives
+    fp = grid_deriv(f)
     if ndims(f) == 1
-        i0 = idx
-        i1 = idx+1
-        fl = f - circshift(f,1)
-        fr = circshift(f,-1) - f
-        result = interp_fn(f,dx) 
+        idiff = (0,1)  # index shift from "idx" to difference
+        fi = []
+        result = interp_fn(f,fp,idx,idiff,dx)
     elseif ndims(f) == 2
-        f00 = f[idx[1],   idx[2]]
-        f01 = f[idx[1],   idx[2]+1]
-        f10 = f[idx[1]+1, idx[2]]
-        f11 = f[idx[1]+1, idx[2]+1]
-        flx = f - f[idx[1]-1, idx[2]]
-        frx = f[idx[1]+1, idx[2]] - f
-        fly = f - f[idx[1], idx[2]-1]
-        fry = f[idex[1], idx[2]+1] - f
-        fx0 = interp_fn(f00,f10,dx[1]) 
-        fx1 = interp_fn(f01,f11,dx[1])
-        result = interp_fn(fx0,fx1,dx[2])
+        result = interp_fn(f,fp,idiff,dx)
     elseif ndims(f) == 3
         f000 = f[idx[1],   idx[2]  , idx[3]]
         f010 = f[idx[1],   idx[2]+1, idx[3]]
