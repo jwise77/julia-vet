@@ -161,6 +161,10 @@ function bezier_interp_tau(chi0, chim, chip, dsm, dsp)
     return dtau
 end
 
+#=
+Grid interpolation routines for upstream / downstream ray values
+=#
+
 function interp_zero(f0,f1,dx)
     if dx < 0.5
         return f0
@@ -196,10 +200,16 @@ function interpolate(f, x, order=1)
     end
     idx = Int32(div(x,1))
     dx = mod(x,1)
+    vec_size = Tuple(collect(Base.Iterators.flatten(size(f),ndims(f))))
+    # Left and right derivative
+    fl = zeros(vec_size)
+    fr = zeros(vec_size)
     if ndims(f) == 1
-        f0 = f[idx]
-        f1 = f[idx+1]
-        result = interp_fn(f0,f1,0,0,dx) 
+        i0 = idx
+        i1 = idx+1
+        fl = f - circshift(f,1)
+        fr = circshift(f,-1) - f
+        result = interp_fn(f,dx) 
     elseif ndims(f) == 2
         f00 = f[idx[1],   idx[2]]
         f01 = f[idx[1],   idx[2]+1]
@@ -209,7 +219,7 @@ function interpolate(f, x, order=1)
         frx = f[idx[1]+1, idx[2]] - f
         fly = f - f[idx[1], idx[2]-1]
         fry = f[idex[1], idx[2]+1] - f
-        fx0 = interp_fn(f00,f10,flx,dx[1]) 
+        fx0 = interp_fn(f00,f10,dx[1]) 
         fx1 = interp_fn(f01,f11,dx[1])
         result = interp_fn(fx0,fx1,dx[2])
     elseif ndims(f) == 3
