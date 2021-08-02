@@ -136,7 +136,7 @@ function bezier_interp_coef(s0, sm, sp, dtaum, dtaup, linear=false)
             psi0 = 2 * dtaum * u1(dtaum) - u2(dtaum) / dtaum^2
             psim = u0(dtaum) - psi0
             psip = 0.0
-        else if sc < min(sm,s0) || sc > max(sm,s0)
+        elseif sc < min(sm,s0) || sc > max(sm,s0)
             # if Sc is outside the data range (i.e. overshooting), choose the upwind point as the control point
             psi0 = u2(dtaum) / dtaum^2
             psim = u0(dtaum) - psi0
@@ -152,7 +152,7 @@ function bezier_interp_tau(chi0, chim, chip, dsm, dsp)
     # Limit overshooting
     if max(chim, chi0, chip) == chi0
         chic = chi0
-    else if chic < min(chim, chi0) || chic > max(chim, chi0)
+    elseif chic < min(chim, chi0) || chic > max(chim, chi0)
         chic = chim
     end
     ds = dsm + dsp
@@ -176,15 +176,15 @@ function grid_deriv(f, dx=1)
     nd = ndims(f)
     ns = size(f)
     vec_size = Tuple(Base.Iterators.flatten((ns,nd)))
-    fprime = field_deriv(nd, ns, zeros(vec_size), zeros(vec_size))
+    fprime = field_deriv(nd, Tuple(ns), zeros(vec_size), zeros(vec_size))
     for i in 1:nd
         shift = zeros(Int,nd)
         shift[i] = 1
-        fprime.left[:,:,i]  = f - circshift(f,shift)
-        fprime.right[:,:,i] = circshift(f,-shift) - f
+        fprime.left[:,:,i]  .= f .- circshift(f,shift)
+        fprime.right[:,:,i] .= circshift(f,-shift) .- f
     end
-    fprime.left /= dx
-    fprime.right /= dx
+    fprime.left ./= dx
+    fprime.right ./= dx
     return fprime
 end
 
@@ -193,7 +193,7 @@ end
 
 function interp_zero(f,fp,x,dx=1)
     # Nearest neighbor
-    idx = floor.(Int, x/dx)
+    idx = round.(Int, x/dx)
     return f[idx]
 end
 
@@ -201,15 +201,15 @@ function interp_linear(f,fp,x,dx=1)
     # 1D Linear Interpolation (sweeps)
     t = mod.(x,dx)
     idx = floor.(Int, x/dx)
-    result = f[idx] .+ t.*(f[idx+1] .- f[idx-1])/dx
+    result = f[idx] .+ t.*(f[idx.+1] .- f[idx])/dx
     return result
 end
 
 function fp_harm(fp)
     # Hayek+ 2010, Equation B.3
     # Harmonic mean of left- and right-handed differences to remove wiggles and overshoots in strong gradients
-    fpnew = zeros(fp.size)
-    pp = fp.left * fp.right .> 0
+    fpnew = zeros(size(fp.left))
+    pp = fp.left .* fp.right .> 0
     fpnew[pp] = (fp.left[pp] .* fp.right[pp]) ./ (0.5 * (fp.left[pp] .+ fp.right[pp]))
     return fpnew
 end
@@ -218,6 +218,8 @@ function interp_quad(f,fp,x,dx=1)
     # 1D Monotonic quadratic (Hayek+ 2010, Appendix B, equation B.5)
     nx = size(x)
     t = mod.(x,dx)
+    idx = floor.(Int, x/dx)
+
     left = t .< 0.5
     right = t .> 0.5
     alpha = zeros(nx)
@@ -233,7 +235,7 @@ function interp_quad(f,fp,x,dx=1)
     beta[right] = t[right] .* (2 .- t[right])
     delta[right] = t[right] .* (t[right] .- 1) * dx
     fpnew = fp_harm(fp)
-    result = alpha .* f[idx] + beta .* f[idx+1] + gamma .* fpnew[idx] + delta .* fpnew[idx+1]
+    result = alpha .* f[idx] .+ beta .* f[idx.+1] .+ gamma .* fpnew[idx] .+ delta .* fpnew[idx.+1]
     return result
 end
 
@@ -247,7 +249,7 @@ function interp_cubic(f,fp,x,dx=1)
     gamma = (t.^3 .- 2*t.^2 .+ t)*dx
     delta = (t.^3 .- t.^2)*dx
     fpnew = fp_harm(fp)
-    result = alpha .* f[idx] + beta .* f[idx+1] + gamma .* fpnew[idx] + delta .* fpnew[idx+1]
+    result = alpha .* f[idx] .+ beta .* f[idx.+1] .+ gamma .* fpnew[idx] .+ delta .* fpnew[idx.+1]
     return result
 end
 
