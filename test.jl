@@ -15,5 +15,17 @@ two = rand(rfn, N,N)
 three = rand(rfn, N,N,N)
 
 fp = grid_deriv(one)
-nx = 3
+fp2 = grid_deriv(two)
+fp3 = grid_deriv(three)
+
+#
+# Test interpolation
+#
+# 1D interpolation points (for 2D RT problems along adjacent edges)
 xx = rand(Uniform(1,N),nx)
+fx = interp_cubic(one, fp)
+Printf(fx)
+
+# 2D interpolation points (for 3D RT problems on adjacent faces)
+xx2 = rand(Uniform(1,N),nx,2)
+

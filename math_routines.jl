@@ -168,23 +168,23 @@ Grid interpolation routines for upstream / downstream ray values
 struct field_deriv{T<:Real}
     ndims::Int
     size::Tuple
-    left::Array{T}
-    right::Array{T}
+    left::Array{Array{T}}
+    right::Array{Array{T}}
 end
 
 function grid_deriv(f, dx=1)
     nd = ndims(f)
     ns = size(f)
-    vec_size = Tuple(Base.Iterators.flatten((ns,nd)))
-    fprime = field_deriv(nd, Tuple(ns), zeros(vec_size), zeros(vec_size))
+    #vec_size = Tuple(Base.Iterators.flatten((nd,ns)))
+    fprime = field_deriv(nd, Tuple(ns), [zeros(ns) for i=1:nd], [zeros(ns) for i=1:nd])
     for i in 1:nd
         shift = zeros(Int,nd)
         shift[i] = 1
-        fprime.left[:,:,i]  .= f .- circshift(f,shift)
-        fprime.right[:,:,i] .= circshift(f,-shift) .- f
+        #fprime.left[:,:,:,i]  .= f .- circshift(f,shift)
+        #fprime.right[:,:,:,i] .= circshift(f,-shift) .- f
+        fprime.left[i] .= (f .- circshift(f,shift)) ./ dx
+        fprime.right[i] .= (circshift(f,-shift) .- f) ./ dx
     end
-    fprime.left ./= dx
-    fprime.right ./= dx
     return fprime
 end
 
