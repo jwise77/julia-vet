@@ -22,9 +22,10 @@ fp3 = grid_deriv(three)
 # Test interpolation
 #
 # 1D interpolation points (for 2D RT problems along adjacent edges)
+nx = 3  # number of points
 xx = rand(Uniform(1,N),nx)
-fx = interp_cubic(one, fp)
-Printf(fx)
+fx = interp_cubic(one, fp, xx)
+println(fx)
 
 # 2D interpolation points (for 3D RT problems on adjacent faces)
 xx2 = rand(Uniform(1,N),nx,2)
