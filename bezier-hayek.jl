@@ -2,7 +2,7 @@
 #
 # See bezier-h20.jl for more general Bezier interpolation routines that we
 #  will mainly use
-#=========================================================================
+# =========================================================================
 
 function bezier_control(s0, sm, sp, dxm, dxp)
     # Calculate control point in a Bezier curve
