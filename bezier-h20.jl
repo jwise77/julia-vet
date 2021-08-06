@@ -22,7 +22,7 @@
 #
 # Output: interpolated quantity
 
-function bezier_interp_1d(f, x, omega=1)
+function bezier_interp_1d(f, x, omega=1, coeff_only=false)
     idx0 = floor.(Int, x)
     idxm = idx0 .- 1
     idxp = idx0 .+ 1
@@ -50,6 +50,10 @@ function bezier_interp_1d(f, x, omega=1)
     ctilde = om .* t + (1 - om) .* t.^2
 
     # Evaluate the Bezier polynomial with the coefficients
-    result = atilde .* f[idxm] .+ btilde .* f[idx0] .+ ctilde .* f[idx1]
-    return result
+    if coeff_only
+        return atilde, btilde, ctilde
+    else
+        result = atilde .* f[idxm] .+ btilde .* f[idx0] .+ ctilde .* f[idx1]
+        return result
+    end
 end
