@@ -1,7 +1,8 @@
 import Distributions: Uniform
-include("math_routines.jl")
+include("general_interpolation.jl")
+include("bezier-h20.jl")
 
-N = 5
+N = 6
 
 # Zeros
 # one = Array{Float64}(undef, N)
@@ -23,10 +24,10 @@ fp3 = grid_deriv(three)
 #
 # 1D interpolation points (for 2D RT problems along adjacent edges)
 nx = 3  # number of points
-xx = rand(Uniform(1,N),nx)
+xx = rand(Uniform(2,N-1),nx)
 fx = interp_cubic(one, fp, xx)
 println(fx)
 
 # 2D interpolation points (for 3D RT problems on adjacent faces)
-xx2 = rand(Uniform(1,N),nx,2)
+xx2 = rand(Uniform(2,N-1),nx,2)
 
