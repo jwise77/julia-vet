@@ -1,14 +1,17 @@
-# Calculate Gaussian angular quadrature: method of discrete ordinates
-# (Bruls et al. 1999, Appendix B)
-#
-# mu = cos(theta)
-#
-# nmu=2: point for each quadrant.
-# Athena-RT (Davis et al. 2012) uses up to nmu=12
-# Results in a na = nmu*(nmu+2) total number of rays
-
 using Printf
 
+"""
+Calculate Gaussian angular quadrature: method of discrete ordinates
+(Bruls et al. 1999, Appendix B)
+
+Returns (weights, mu, theta)
+
+mu = cos(theta)
+
+nmu=2: point for each quadrant.
+Athena-RT (Davis et al. 2012) uses up to nmu=12
+Results in a na = nmu*(nmu+2) total number of rays
+"""
 function ang_weights_mu(nmu, verbose=false)
 
     if nmu % 2 == 1

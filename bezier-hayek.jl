@@ -1,20 +1,21 @@
-# 1D Bezier interpolation from Hayek et al. (2010) and Kunasz & Auer (1988)
-#
-# See bezier-h20.jl for more general Bezier interpolation routines that we
-#  will mainly use
-# =========================================================================
+"""
+1D Bezier interpolation from Hayek et al. (2010) and Kunasz & Auer (1988)
+See bezier-h20.jl for more general Bezier interpolation routines that we will mainly use
 
+Calculate control point in a Bezier curve
+"""
 function bezier_control(s0, sm, sp, dxm, dxp)
-    # Calculate control point in a Bezier curve
     dx_sum = dxm + dxp
     s0prime = (dxp / dx_sum) * (s0 - sm) / dxm + (dxm / dx_sum) * (sp - s0) / dxp
     sc = s0 - 0.5 * dxm * s0prime
     return sc
 end
 
-function bezier_interp_coef(s0, sm, sp, dtaum, dtaup, linear=false)
-    # Kunasz & Auer (1988), Equations (7a) - (9c)
-    # Hayek et al. (2010), Appendix A, psim = Psi_d to conform with Kunasz88 notation
+"""
+Kunasz & Auer (1988), Equations (7a) - (9c)
+Hayek et al. (2010), Appendix A, psim = Psi_d to conform with Kunasz88 notation
+"""
+    function bezier_interp_coef(s0, sm, sp, dtaum, dtaup, linear=false)
     u0(x) = 1 - exp(-x)
     u1(x) = x - u0(x)
     u2(x) = x^2 - 2*u1(x)
@@ -45,8 +46,10 @@ function bezier_interp_coef(s0, sm, sp, dtaum, dtaup, linear=false)
     return psi0, psim, psip
 end
 
+"""
+Bezier interpolation for optical depth (Equation A.3 in Hayek+ 2010)
+"""
 function bezier_interp_tau(chi0, chim, chip, dsm, dsp)
-    # Bezier interpolation for optical depth (Equation A.3 in Hayek+ 2010)
     chic = bezier_control(chi0, chim, chip, dsm, dsp)
     # Limit overshooting
     if max(chim, chi0, chip) == chi0

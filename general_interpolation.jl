@@ -9,6 +9,9 @@ struct field_deriv
     right::Array{Array}
 end
 
+"""
+Returns the left- and right-handed differences of a field
+"""
 function grid_deriv(f, dx=1)
     nd = ndims(f)
     ns = size(f)
@@ -28,31 +31,39 @@ end
 # Interpolation functions in 1D
 # Perform multi-D interpolation in sweeps
 
-function interp_zero(f,fp,x,dx=1)
-    # Nearest neighbor
+"""
+Nearest neighbor interpolation
+"""
+    function interp_zero(f,fp,x,dx=1)
     idx = round.(Int, x/dx)
     return f[idx]
 end
 
-function interp_linear(f,fp,x,dx=1)
-    # 1D Linear Interpolation (sweeps)
+"""
+1D Linear Interpolation
+"""
+    function interp_linear(f,fp,x,dx=1)
     t = mod.(x,dx)
     idx = floor.(Int, x/dx)
     result = f[idx] .+ t.*(f[idx.+1] .- f[idx])/dx
     return result
 end
 
-function fp_harm(fp,dim=1)
-    # Hayek+ 2010, Equation B.3
-    # Harmonic mean of left- and right-handed differences to remove wiggles and overshoots in strong gradients
+"""
+Hayek+ 2010, Equation B.3
+Harmonic mean of left- and right-handed differences to remove wiggles and overshoots in strong gradients
+"""
+    function fp_harm(fp,dim=1)
     fpnew = zeros(size(fp.left[dim]))
     pp = fp.left[dim] .* fp.right[dim] .> 0
     fpnew[pp] = (fp.left[dim][pp] .* fp.right[dim][pp]) ./ (0.5 * (fp.left[dim][pp] .+ fp.right[dim][pp]))
     return fpnew
 end
 
+"""
+1D Monotonic quadratic (Hayek+ 2010, Appendix B, equation B.5)
+"""
 function interp_quad(f,fp,x,dx=1,dim=1)
-    # 1D Monotonic quadratic (Hayek+ 2010, Appendix B, equation B.5)
     nx = size(x)
     t = mod.(x,dx)
     idx = floor.(Int, x/dx)
@@ -76,8 +87,10 @@ function interp_quad(f,fp,x,dx=1,dim=1)
     return result
 end
 
+"""
+1D Monotonic cubic (Hayek+ 2010, Appendix B)
+"""
 function interp_cubic(f,fp,x,dx=1,dim=1)
-    # 1D Monotonic cubic (Hayek+ 2010, Appendix B)
     nx = size(x)
     t = mod.(x, dx)
     idx = floor.(Int, x/dx)
@@ -90,12 +103,12 @@ function interp_cubic(f,fp,x,dx=1,dim=1)
     return result
 end
 
-function interpolate(f, x, order=1)
-    #
-    # Only 1D currently
-    #
-    # Interpolate positions x (rank order) from field f (rank order)
-    # Assume that x are in units of cell widths (dx = 1)
+"""
+General interpolation routine: Only 1D currently
+Interpolate positions x (rank order) from field f (rank order)
+Assume that x are in units of cell widths (dx = 1)
+"""
+    function interpolate(f, x, order=1)
     if order == 0
         interp_fn = interp_zero
     elseif order == 1

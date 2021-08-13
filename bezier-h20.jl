@@ -22,11 +22,13 @@
 #
 # Output: interpolated quantity
 
-function bezier_interp_1dv(f::AbstractArray, x::Number, omega=1, return_coeff=false)
-    # Version that takes entire array (row or column)
-    # coeff_only
-    # * true = returns interpolation coefficients only. Useful for 2D.
-    # * false = return interpolated value
+"""
+Version that takes entire array (row or column)
+coeff_only
+* true = returns interpolation coefficients only. Useful for 2D.
+* false = return interpolated value
+"""
+    function bezier_interp_1dv(f::AbstractArray, x::Number, omega=1, return_coeff=false)
     idx0 = floor(Int, x)
     idxm = idx0 - 1
     idxp = idx0 + 1
@@ -60,10 +62,12 @@ function bezier_interp_1dv(f::AbstractArray, x::Number, omega=1, return_coeff=fa
     return result
 end
 
-function bezier_interp_1d(fm::Number, f0::Number, fp::Number, x::Number, omega=1, return_coeff=false)
-    # Version that takes three points (j-1, j, j+1) and an x-coordinate for
-    # interpolation instead of an array.
-    # Same operations as the full array version.
+"""
+Version that takes three points (j-1, j, j+1) and an x-coordinate for
+interpolation instead of an array.
+Same operations as the full array version.
+"""
+    function bezier_interp_1d(fm::Number, f0::Number, fp::Number, x::Number, omega=1, return_coeff=false)
     t = mod(x,1)
     fc = f0 + 0.5 * (omega * (fp - f0) + (1 - omega) * (f0 - fm))
 
@@ -85,9 +89,11 @@ function bezier_interp_1d(fm::Number, f0::Number, fp::Number, x::Number, omega=1
     return result
 end
 
+"""
+Does what I expect f[ix,iy] would do
+Returns an array of size (ix) instead of (ix,iy)
+"""
 function get_indices(f::AbstractMatrix, ix::AbstractArray, iy::AbstractArray)
-    # Does what I expect f[ix,iy] would do
-    # Returns an array of size (ix) instead of (ix,iy)
     return [f[ix[i],iy[i]] for i in eachindex(ix,iy)]
 end
 
