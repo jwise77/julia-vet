@@ -23,10 +23,12 @@
 # Output: interpolated quantity
 
 """
-Version that takes entire array (row or column)
-coeff_only
-* true = returns interpolation coefficients only. Useful for 2D.
-* false = return interpolated value
+Hennenick+ (2020), Appendix B.2: Interval [x_i, x_{i+1}]
+* For quantity q interpolations, we always assume that x is in this range.
+* Version that takes entire array (row or column)
+* coeff_only
+    * true = returns interpolation coefficients only. Useful for 2D.
+    * false = return interpolated value
 """
     function bezier_interp_1dv(f::AbstractArray, x::Number, omega=1, return_coeff=false)
     idx0 = floor(Int, x)
@@ -35,9 +37,6 @@ coeff_only
     xi = Float64(idx0)
     # Interpolation point (B.11)
     t = x - xi
-    # Control point (B.12)
-    fc = f[idx0] + 0.5 * (omega * (f[idxp] - f[idx0]) + 
-        (1 - omega) * (f[idx0] - f[idxm]))
 
     # Shape parameters to maintain monotonicity (B.17-18)
     # Note: Not sure if Julia will deal with divide by zeroes nicely
@@ -53,23 +52,27 @@ coeff_only
     btilde = 1 - (2 * om - 1) * t + 2 * (om - 1) * t^2
     ctilde = om * t + (1 - om) * t^2
 
+    # Control point (B.12)
+    fc = f[idx0] + 0.5 * (om * (f[idxp] - f[idx0]) + 
+        (1 - om) * (f[idx0] - f[idxm]))
+
     # Evaluate the Bezier polynomial with the coefficients
     result = atilde * f[idxm] + btilde * f[idx0] + ctilde * f[idxp]
     if return_coeff
-        coeff = Dict("a"=>atilde, "b"=>btilde, "c"=>ctilde)
+        coeff = Dict("a"=>atilde, "b"=>btilde, "c"=>ctilde, "fc"=>fc)
         result = (result, coeff)
     end
     return result
 end
 
 """
-Version that takes three points (j-1, j, j+1) and an x-coordinate for
-interpolation instead of an array.
-Same operations as the full array version.
+Hennenick+ (2020), Appendix B.2: Interval [x_i, x_{i+1}]
+* For quantity q interpolations, we always assume that x is in this range.
+* Version that takes three points (j-1, j, j+1) and an x-coordinate for interpolation instead of an array.
+* Same operations as the full array version.
 """
-    function bezier_interp_1d(fm::Number, f0::Number, fp::Number, x::Number, omega=1, return_coeff=false)
+function bezier_interp_1d(fm::Number, f0::Number, fp::Number, x::Number, omega=1, return_coeff=false)
     t = mod(x,1)
-    fc = f0 + 0.5 * (omega * (fp - f0) + (1 - omega) * (f0 - fm))
 
     omegai = 1 / (1 - (fp - f0) / (f0 - fm))
     omegap = 1 + 1 / (1 - (f0 - fm) / (fp - f0))
@@ -80,10 +83,39 @@ Same operations as the full array version.
     atilde = (om - 1) * t - (om - 1) * t^2
     btilde = 1 - (2 * om - 1) * t + 2 * (om - 1) * t^2
     ctilde = om * t + (1 - om) * t^2
+    fc = f0 + 0.5 * (om * (fp - f0) + (1 - om) * (f0 - fm))
 
     result = atilde * fm + btilde * f0 + ctilde * fp
     if return_coeff
-        coeff = Dict("a"=>atilde, "b"=>btilde, "c"=>ctilde)
+        coeff = Dict("a"=>atilde, "b"=>btilde, "c"=>ctilde, "fc"=>fc)
+        result = (result, coeff)
+    end
+    return result
+end
+
+"""
+Hennenick+ (2020), Appendix B.1: Interval [x_{i-1}, x_i]
+* Only used for interpolation along a ray in the upstream portion, in particular the opacity and associated control point.
+* Version that takes three points (j-1, j, j+1) and an x-coordinate for interpolation instead of an array.
+* Same operations as the full array version.
+"""
+function bezier_interp_1dm(fm::Number, f0::Number, fp::Number, x::Number, omega=1, return_coeff=false)
+    t = mod(x,1)
+
+    omegai = 1 / (1 - (fp - f0) / (f0 - fm))
+    omegap = 1 + 1 / (1 - (f0 - fm) / (fp - f0))
+    omega_min = max(min(omegai, omegap), 0.5)
+    omega_max = min(max(omegai, omegap), 1.0)
+    om = min(max(omega, omega_min), omega_max)
+
+    atilde = 1 + (om - 2) * t + (1 - om) * t^2
+    btilde = (3 - 2 * om) * t + 2 * (om - 1) * t^2
+    ctilde = (om - 1) * t - (om - 1) * t^2
+    fc = f0 + 0.5 * (om * (f0 - fm) + (1 - om) * (fp - f0))
+
+    result = atilde * fm + btilde * f0 + ctilde * fp
+    if return_coeff
+        coeff = Dict("a"=>atilde, "b"=>btilde, "c"=>ctilde, "fc"=>fc)
         result = (result, coeff)
     end
     return result
