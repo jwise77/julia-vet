@@ -23,3 +23,10 @@ function Bnu(T::Number, nu::Number)
     return 1.0 / (exp(x) - 1.0)
 end
 
+"""
+Update source function
+    For now, do nothing
+"""
+function source_update!(source)
+    return nothing
+end
