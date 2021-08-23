@@ -12,7 +12,7 @@ nmu=2: point for each quadrant.
 Athena-RT (Davis et al. 2012) uses up to nmu=12
 Results in a na = nmu*(nmu+2) total number of rays
 """
-function ang_weights_mu(nmu, verbose=false)
+function ang_weights_mu(nmu, north_only=true, verbose=false)
 
     if nmu % 2 == 1
         println("Number of polar angles must be even.  Setting n_mu = $nmu -> $(nmu+1)")
@@ -82,20 +82,26 @@ function ang_weights_mu(nmu, verbose=false)
     thetaN = acos.(muN)
 
     # Apply equatorial symmetry. Points lie on circles with a co-latitude theta
-    w = zeros(nmu)
-    mu = zeros(nmu)
-    theta = zeros(nmu)
-    
-    mid = Int(nmu/2)
-    # South
-    theta[1:mid] = -thetaN
-    mu[1:mid] = muN
-    w[1:mid] = wN
-    
-    # North
-    theta[mid+1:end] = reverse(thetaN)
-    mu[mid+1:end] = reverse(muN)
-    w[mid+1:end] = reverse(wN)
+    if north_only
+        w = reverse(wN)
+        mu = reverse(muN)
+        theta = reverse(thetaN)
+    else
+        w = zeros(nmu)
+        mu = zeros(nmu)
+        theta = zeros(nmu)
+        
+        mid = Int(nmu/2)
+        # South
+        theta[1:mid] = -thetaN
+        mu[1:mid] = muN
+        w[1:mid] = wN
+        
+        # North
+        theta[mid+1:end] = reverse(thetaN)
+        mu[mid+1:end] = reverse(muN)
+        w[mid+1:end] = reverse(wN)
+    end
 
     if verbose
         println("mu = $mu")
@@ -106,4 +112,66 @@ function ang_weights_mu(nmu, verbose=false)
 
     return w, mu, theta
     
+end
+
+"""
+Calculate the angle coordinates (mu_i, mu_j, mu_k) and quadrature weights
+
+Input: nmu (number of polar angles, theta)
+Output: ray_info dictionary
+
+See Bruls+ (1999), Appendix B. 
+Note (Aug 2021): For testing, we take the simplification of having z as the preferred direction because we're on a Cartesian grid. This allows us to neglect the rotation invariance and define the points on co-latitude (at theta) circle evenly in longitude (phi).  In the future, we need to solve a system of linear equations for the class weights.
+"""
+function calculate_ray_info(nmu::Int)
+    if nmu % 2 == 1
+        println("WARNING: Number of polar angles must be even.  Setting n_mu = $nmu -> $(nmu+1)")
+        nmu += 1
+    end
+
+    na = nmu * (nmu+2)
+    w_z, mu_z, theta = ang_weights_mu(nmu)
+    
+    # Ray angle and weight arrays
+    mu = zeros(na, 3)
+    w = zeros(na)
+
+    # Assign phi. Work on north hemisphere and copy to southern
+    # n_j (= 2*nmu + 4 - 4*j) points on the j-th circle in the unit sphere
+    istart = 0
+    iend = 0
+    for j = 1:div(nmu,2)
+        nj = Int(2*nmu + 4 - 4*j)
+        # Update array bounds for this co-latitude circle
+        istart = iend+1
+        iend += nj
+        dphi = 2*pi/nj
+        phi = (collect(1:nj) .- 0.5) .* dphi
+        mu[istart:iend,1] = sin(theta[j]) .* cos.(phi)
+        mu[istart:iend,2] = sin(theta[j]) .* sin.(phi)
+        mu[istart:iend,3] = ones(nj) .* mu_z[j]
+        w[istart:iend] = ones(nj) .* w_z[j] ./ nj
+    end
+    # Copy to southern hemisphere
+    mu[iend+1:end,1] = mu[1:iend,1]
+    mu[iend+1:end,2] = mu[1:iend,2]
+    mu[iend+1:end,3] = -mu[1:iend,3]
+    w[iend+1:end] = w[1:iend]
+
+    # Calculate intersection with cell faces (take cell width ds = 1)
+    # Distance to neighboring xy-, xz-, yz-planes.
+    # The minimum is the ray segment length.
+    ds_xy = sign.(mu[:,3]) ./ mu[:,3]
+    ds_xz = sign.(mu[:,2]) ./ mu[:,2]
+    ds_yz = sign.(mu[:,1]) ./ mu[:,1]
+    ds = min.(ds_xy, ds_xz, ds_yz)
+    dr = ds .* mu
+
+    # Cartesian direction (i.e. x,y,z) to the nearest plane
+    idir = map(a -> a[2], argmax(abs.(dr), dims=2))
+
+    ray_info = Dict("nmu"=>nmu, "na"=>nmu*(nmu+2), "w"=>w, "mu"=>mu, 
+        "ds"=>ds, "dr"=>dr, "idir"=>idir)
+
+    return ray_info
 end
