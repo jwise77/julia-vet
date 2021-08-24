@@ -102,8 +102,8 @@ Hennenick+ (2020), Appendix B.1: Interval [x_{i-1}, x_i]
 function bezier_interp_1dm(fm::Number, f0::Number, fp::Number, x::Number, omega=1, return_coeff=false)
     t = mod(x,1)
 
-    omegai = 1 / (1 - (fp - f0) / (f0 - fm))
-    omegap = 1 + 1 / (1 - (f0 - fm) / (fp - f0))
+    omegai = 1 + 1 / (1 - (fp - f0) / (f0 - fm))
+    omegap = 1 / (1 - (f0 - fm) / (fp - f0))
     omega_min = max(min(omegai, omegap), 0.5)
     omega_max = min(max(omegai, omegap), 1.0)
     om = min(max(omega, omega_min), omega_max)
@@ -119,6 +119,34 @@ function bezier_interp_1dm(fm::Number, f0::Number, fp::Number, x::Number, omega=
         result = (result, coeff)
     end
     return result
+end
+
+"""
+Hennenick+ (2020), Appendix B.1 (Equations B.5-6) [i-1,i] interval
+* Return function at control point. Depends on function values for a uniform grid.
+"""
+function bezier_controlm(fm::Number, f0::Number, fp::Number, omega=1)
+    omegai = 1 + 1 / (1 - (fp - f0) / (f0 - fm))
+    omegap = 1 / (1 - (f0 - fm) / (fp - f0))
+    omega_min = max(min(omegai, omegap), 0.5)
+    omega_max = min(max(omegai, omegap), 1.0)
+    om = min(max(omega, omega_min), omega_max)
+    fc = f0 + 0.5 * (om * (fp - f0) + (1 - om) * (f0 - fm))
+    return fc
+end
+
+"""
+Hennenick+ (2020), Appendix B.2 (Equations B.17-18) [i,i+1] interval
+* Return function at control point. Depends on function values for a uniform grid.
+"""
+function bezier_control(fm::Number, f0::Number, fp::Number, omega=1)
+    omegai = 1 / (1 - (fp - f0) / (f0 - fm))
+    omegap = 1 + 1 / (1 - (f0 - fm) / (fp - f0))
+    omega_min = max(min(omegai, omegap), 0.5)
+    omega_max = min(max(omegai, omegap), 1.0)
+    om = min(max(omega, omega_min), omega_max)
+    fc = f0 + 0.5 * (om * (fp - f0) + (1 - om) * (f0 - fm))
+    return fc
 end
 
 """
