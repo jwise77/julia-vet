@@ -145,7 +145,7 @@ function integrate_cell(I::AbstractArray, S::AbstractArray, chi::AbstractArray, 
     Sp = ones(rays["da"]) * S[ijk[1], ijk[2], ijk[3]]
     chip = ones(rays["da"]) * chi[ijk[1], ijk[2], ijk[3]]
     # Calculate interpolated upwind intensity on each ray normal (I cdot n)
-    I0 = Ixu .* rays["mu"][:,1] .+ Iyu .* rays["mu"][:,2] .+ Izu .* rays["mu"][:,3]
+    @. I0 = Ixu * rays["mu"][:,1] + Iyu * rays["mu"][:,2] + Izu * rays["mu"][:,3]
     # Integrate the rays
     Iray = integrate_ray.(I0, Su, Sp, Sd, chiu, chip, chid, rays["ds"], rays["ds"], omega)
 
