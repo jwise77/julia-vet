@@ -168,9 +168,9 @@ function calculate_ray_info(nmu::Int)
     dr = ds .* mu
 
     # Cartesian direction (i.e. x,y,z) to the nearest plane
-    idir = map(a -> a[2], argmax(abs.(dr), dims=2))
+    idir = dropdims(map(a -> a[2], argmax(abs.(dr), dims=2)), dims=2)
     # Pointing in positive or negative direction
-    isign = sign.(dr[:,idir])
+    isign = [sign(dr[i,idir[i]]) for i = 1:na]
 
     ray_info = Dict("nmu"=>nmu, "na"=>nmu*(nmu+2), "w"=>w, "mu"=>mu, 
         "ds"=>ds, "dr"=>dr, "idir"=>idir, "isign"=>isign)

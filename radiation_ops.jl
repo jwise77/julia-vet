@@ -87,15 +87,18 @@ Integrate short characteristics for a single cell
     * New intensity and associated moments of cell ijk
 """
 function integrate_cell(I::AbstractArray, S::AbstractArray, chi::AbstractArray, ijk::Vector{Int}, rays::Dict, omega=1)
+    # Cartestian directions in planes (yz, xz, xy-planes)
+    all_idim = ((2,3), (1,3), (1,2))
     # Calculate ray start/end points
     rstart = ijk' .- rays["dr"]
     rend = ijk' .+ rays["dr"]
 
     # Arrays for upwind and downwind interpolated quantities
-    Iu = zeros(rays["na"])
+    Ixu = zeros(rays["na"])
+    Iyu = zeros(rays["na"])
+    Izu = zeros(rays["na"])
     Su = zeros(rays["na"])
     chiu = zeros(rays["na"])
-    Id = zeros(rays["na"])
     Sd = zeros(rays["na"])
     chid = zeros(rays["na"])
 
@@ -104,41 +107,52 @@ function integrate_cell(I::AbstractArray, S::AbstractArray, chi::AbstractArray, 
     # 2. Perform interpolation for all rays
     for dim = 1:3
         # Negative slices
-        ijk_m = (:,:,:)
-        ijk_m[dim] = ijk_m[dim] - 1
+        ijk_m = Dict()
+        for j in 1:3
+            ijk_m[j] = (j == dim) ? (ijk[dim] - 1) : Colon()
+        end
         Ixm = view(I, ijk_m[1], ijk_m[2], ijk_m[3], 1)
         Iym = view(I, ijk_m[1], ijk_m[2], ijk_m[3], 2)
         Izm = view(I, ijk_m[1], ijk_m[2], ijk_m[3], 3)
         Sm = view(S, ijk_m[1], ijk_m[2], ijk_m[3])
         chim = view(chi, ijk_m[1], ijk_m[2], ijk_m[3])
         # Positive slices
-        ijk_p = (:,:,:)
-        ijk_p[dim] = ijk_p[dim] + 1
+        ijk_p = Dict()
+        for j in 1:3
+            ijk_p[j] = (j == dim) ? (ijk[dim] + 1) : Colon()
+        end
         Ixp = view(I, ijk_p[1], ijk_p[2], ijk_p[3], 1)
         Iyp = view(I, ijk_p[1], ijk_p[2], ijk_p[3], 2)
         Izp = view(I, ijk_p[1], ijk_p[2], ijk_p[3], 3)
         Sp = view(S, ijk_p[1], ijk_p[2], ijk_p[3])
         chip = view(chi, ijk_p[1], ijk_p[2], ijk_p[3])
         # Execution mask for rays traveling in this direction
-        rmask = rays["idir"] == dim
-        neg_rays = rmask .& (rays["isign"] == -1)
-        pos_rays = rmask .& (rays["isign"] == +1)
+        rmask = rays["idir"] .== dim
+        neg_rays = rmask .& (rays["isign"] .== -1)
+        pos_rays = rmask .& (rays["isign"] .== +1)
         # Interpolation (upwind) from -1 planes then +1 planes
-        Ixu[neg_rays] = bezier_interp_2d.(Ixm, rstart[neg_rays])
-        Iyu[neg_rays] = bezier_interp_2d.(Iym, rstart[neg_rays])
-        Izu[neg_rays] = bezier_interp_2d.(Izm, rstart[neg_rays])
-        Su[neg_rays] = bezier_interp_2d.(Sm, rstart[neg_rays])
-        chiu[neg_rays] = bezier_interp_2d.(chim, rstart[neg_rays])
-        Ixu[pos_rays] = bezier_interp_2d.(Ixp, rstart[pos_rays])
-        Iyu[pos_rays] = bezier_interp_2d.(Iyp, rstart[pos_rays])
-        Izu[pos_rays] = bezier_interp_2d.(Izp, rstart[pos_rays])
-        Su[pos_rays] = bezier_interp_2d.(Sp, rstart[pos_rays])
-        chiu[pos_rays] = bezier_interp_2d.(chip, rstart[pos_rays])
+        idim = all_idim[dim][1]  # x-direction in plane
+        jdim = all_idim[dim][2]  # y-direction
+        II = I[ijk_p[1], ijk_p[2], ijk_p[3], 1]
+        rs_neg = rstart[neg_rays,:]
+        re_neg = rend[neg_rays,:]
+        rs_pos = rstart[pos_rays,:]
+        re_pos = rend[pos_rays,:]
+        Ixu[neg_rays] = bezier_interp_2d.(Ref(II), rs_neg[idim], rs_neg[jdim])
+        Iyu[neg_rays] = bezier_interp_2d.(Ref(Iym), rstart[neg_rays,idim], rstart[neg_rays,jdim])
+        Izu[neg_rays] = bezier_interp_2d.(Ref(Izm), rstart[neg_rays,idim], rstart[neg_rays,jdim])
+        Su[neg_rays] = bezier_interp_2d.(Ref(Sm), rstart[neg_rays,idim], rstart[neg_rays,jdim])
+        chiu[neg_rays] = bezier_interp_2d.(Ref(chim), rstart[neg_rays,idim], rstart[neg_rays,jdim])
+        Ixu[pos_rays] = bezier_interp_2d.(Ref(Ixp), rstart[pos_rays,idim], rstart[pos_rays,jdim])
+        Iyu[pos_rays] = bezier_interp_2d.(Ref(Iyp), rstart[pos_rays,idim], rstart[pos_rays,jdim])
+        Izu[pos_rays] = bezier_interp_2d.(Ref(Izp), rstart[pos_rays,idim], rstart[pos_rays,jdim])
+        Su[pos_rays] = bezier_interp_2d.(Ref(Sp), rstart[pos_rays,idim], rstart[pos_rays,jdim])
+        chiu[pos_rays] = bezier_interp_2d.(Ref(chip), rstart[pos_rays,idim], rstart[pos_rays,jdim])
         # Downwind
-        Sd[neg_rays] = bezier_interp_2d.(Sm, rend[neg_rays])
-        chid[neg_rays] = bezier_interp_2d.(chim, rend[neg_rays])
-        Sd[pos_rays] = bezier_interp_2d.(Sp, rend[pos_rays])
-        chid[pos_rays] = bezier_interp_2d.(chip, rend[pos_rays])
+        Sd[neg_rays] = bezier_interp_2d.(Ref(Sm), rend[neg_rays,idim], rstart[neg_rays,jdim])
+        chid[neg_rays] = bezier_interp_2d.(Ref(chim), rend[neg_rays,idim], rstart[neg_rays,jdim])
+        Sd[pos_rays] = bezier_interp_2d.(Ref(Sp), rend[pos_rays,idim], rstart[pos_rays,jdim])
+        chid[pos_rays] = bezier_interp_2d.(Ref(chip), rend[pos_rays,idim], rstart[pos_rays,jdim])
     end
 
     # Duplicate source function and opacity at cell center for vectorization

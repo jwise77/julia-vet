@@ -1,10 +1,24 @@
 using Debugger
+import Distributions: Uniform
 include("angular_gauss_quad.jl")
+include("bezier-h20.jl")
 include("radiation_ops.jl")
 
+struct grid
+    rank::Int
+    dims::AbstractArray
+    S::AbstractArray
+    I::AbstractArray
+    B::AbstractArray
+    chi::AbstractArray
+    rho::AbstractArray
+    T::AbstractArray
+    J::AbstractArray
+    H::AbstractArray
+    K::AbstractArray
+end
+
 function test_bezier()
-    import Distributions: Uniform
-    include("bezier-h20.jl")
     
     N = 6
     
@@ -40,28 +54,15 @@ function test_bezier()
     xi2 = floor.(Int, xx2)
     xi = xi2[:,1]
     yi = xi2[:,2]
-    fxy = bezier_interp_2d(two, xx, yy)
+    fxy = bezier_interp_2d.(two, xx, yy)
     println(fxy)
 end
 
 function initialize_regular_grid(rank::Int, N::Int)
-    struct grid
-        rank::Int
-        dims::AbstractArray
-        S::AbstractArray
-        I::AbstractArray
-        B::AbstractArray
-        chi::AbstractArray
-        rho::AbstractArray
-        T::AbstractArray
-        J::AbstractArray
-        H::AbstractArray
-        K::AbstractArray
-    end
-    dims = N * ones(rank, Int)
-    empty_grid = zeros(dims)
-    empty_vec_grid = zeros([dims;rank])
-    empty_tensor_grid = zeros([dims;rank;rank])
+    dims = N * ones(Int, rank)
+    empty_grid = zeros(Tuple(dims))
+    empty_vec_grid = zeros(Tuple([dims;rank]))
+    empty_tensor_grid = zeros(Tuple([dims;rank;rank]))
     result = grid(rank, dims,
         empty_grid, # S
         empty_vec_grid, # I
@@ -78,7 +79,7 @@ end
 
 function test_ray()
     I0 = 0.0
-    S = Dict("u"=>1.0, "p"=>0.1, "d"=>0.0)
+    S = Dict("u"=>1.0, "p"=>0.1, "d"=>0.1)
     chi = Dict("u"=>0.1, "p"=>0.5, "d"=>1.0)
     Inew = integrate_ray(I0, S["u"], S["p"], S["d"], chi["u"], chi["p"], chi["d"], 1, 1, 1)
 end
@@ -88,7 +89,7 @@ function test_cell()
     N = 10
     nmu = 4
     omega = 1  # 0.5 (parabolic) -> 1.0 (linear) interpolation
-    grid = initialize_regular_grid(3, N)
+    grid = initialize_regular_grid(rank, N)
     rays = calculate_ray_info(nmu)
     ijk = [2,2,2]
     Inew, J, H, K = integrate_cell(grid.I, grid.S, grid.chi, ijk, rays, omega)
