@@ -23,6 +23,34 @@
 # Output: interpolated quantity
 
 """
+Restrict the interpolation shape parameter to preserve monotonicity
+"""
+function restrict_omega(fm::Number, f0::Number, fp::Number, omega::Number, plus_side::Bool)
+    dfp = fp - f0
+    dfm = f0 - fm
+    # Prevent divide by zero
+    dfm = max(abs(dfm), 1e-20)
+    dfp = max(abs(dfp), 1e-20)
+    one_dfp = 1 - dfp / dfm
+    one_dfm = 1 - dfm / dfp
+    # Prevent divide by zero
+    one_dfm = max(abs(one_dfm), 1e-20)
+    one_dfp = max(abs(one_dfp), 1e-20)
+    if plus_side
+        omegai = 1 / one_dfp
+        omegap = 1 + 1 / one_dfm
+    else
+        omegai = 1 + 1 / one_dfp
+        omegap = 1 / one_dfm
+    end
+    # Restrict omega to range of [omegai,omegap] and [0.5,1]
+    omega_min = max(min(omegai, omegap), 0.5)
+    omega_max = min(max(omegai, omegap), 1.0)
+    om = min(max(omega, omega_min), omega_max)
+    return om
+end
+
+"""
 Hennenick+ (2020), Appendix B.2: Interval [x_i, x_{i+1}]
 * For quantity q interpolations, we always assume that x is in this range.
 * Version that takes entire array (row or column)
@@ -30,22 +58,21 @@ Hennenick+ (2020), Appendix B.2: Interval [x_i, x_{i+1}]
     * true = returns interpolation coefficients only. Useful for 2D.
     * false = return interpolated value
 """
-    function bezier_interp_1dv(f::AbstractArray, x::Number, omega=1, return_coeff=false)
+function bezier_interp_1dv(f::AbstractArray, x::Number, omega=1, return_coeff=false)
+    if ndims(f) != 1
+        error("f must be one-dimensional")
+    end
     idx0 = floor(Int, x)
-    idxm = idx0 - 1
-    idxp = idx0 + 1
-    xi = Float64(idx0)
+    idxm = max(idx0-1, 1)
+    idxp = min(idx0+1, size(f)[1])
+    omega = (idx0 == idxm || idx0 == idxp) ? 1.0 : omega  # linear if boundary cell
+
     # Interpolation point (B.11)
+    xi = Float64(idx0)
     t = x - xi
 
     # Shape parameters to maintain monotonicity (B.17-18)
-    # Note: Not sure if Julia will deal with divide by zeroes nicely
-    omegai = 1 / (1 - (f[idxp] - f[idx0]) / (f[idx0] - f[idxm]))
-    omegap = 1 + 1 / (1 - (f[idx0] - f[idxm]) / (f[idxp] - f[idx0]))
-    # Restrict omega to range of [omegai,omegap] and [0.5,1]
-    omega_min = max(min(omegai, omegap), 0.5)
-    omega_max = min(max(omegai, omegap), 1.0)
-    om = min(max(omega, omega_min), omega_max)
+    om = restrict_omega(f[idxm], f[idx0], f[idxp], omega, true)
 
     # Interpolation coefficients. (B.14-16) setting dx = 1
     atilde = (om - 1) * t - (om - 1) * t^2
@@ -74,12 +101,8 @@ Hennenick+ (2020), Appendix B.2: Interval [x_i, x_{i+1}]
 function bezier_interp_1d(fm::Number, f0::Number, fp::Number, x::Number, omega=1, return_coeff=false)
     t = mod(x,1)
 
-    omegai = 1 / (1 - (fp - f0) / (f0 - fm))
-    omegap = 1 + 1 / (1 - (f0 - fm) / (fp - f0))
-    omega_min = max(min(omegai, omegap), 0.5)
-    omega_max = min(max(omegai, omegap), 1.0)
-    om = min(max(omega, omega_min), omega_max)
-
+    om = restrict_omega(fm, f0, fp, omega, true)
+    dfp = fp - f0
     atilde = (om - 1) * t - (om - 1) * t^2
     btilde = 1 - (2 * om - 1) * t + 2 * (om - 1) * t^2
     ctilde = om * t + (1 - om) * t^2
@@ -102,11 +125,7 @@ Hennenick+ (2020), Appendix B.1: Interval [x_{i-1}, x_i]
 function bezier_interp_1dm(fm::Number, f0::Number, fp::Number, x::Number, omega=1, return_coeff=false)
     t = mod(x,1)
 
-    omegai = 1 + 1 / (1 - (fp - f0) / (f0 - fm))
-    omegap = 1 / (1 - (f0 - fm) / (fp - f0))
-    omega_min = max(min(omegai, omegap), 0.5)
-    omega_max = min(max(omegai, omegap), 1.0)
-    om = min(max(omega, omega_min), omega_max)
+    om = restrict_omega(fm, f0, fp, omega, false)
 
     atilde = 1 + (om - 2) * t + (1 - om) * t^2
     btilde = (3 - 2 * om) * t + 2 * (om - 1) * t^2
@@ -126,11 +145,7 @@ Hennenick+ (2020), Appendix B.1 (Equations B.5-6) [i-1,i] interval
 * Return function at control point. Depends on function values for a uniform grid.
 """
 function bezier_controlm(fm::Number, f0::Number, fp::Number, omega=1)
-    omegai = 1 + 1 / (1 - (fp - f0) / (f0 - fm))
-    omegap = 1 / (1 - (f0 - fm) / (fp - f0))
-    omega_min = max(min(omegai, omegap), 0.5)
-    omega_max = min(max(omegai, omegap), 1.0)
-    om = min(max(omega, omega_min), omega_max)
+    om = restrict_omega(fm, f0, fp, omega, false)
     fc = f0 + 0.5 * (om * (fp - f0) + (1 - om) * (f0 - fm))
     return fc
 end
@@ -140,11 +155,7 @@ Hennenick+ (2020), Appendix B.2 (Equations B.17-18) [i,i+1] interval
 * Return function at control point. Depends on function values for a uniform grid.
 """
 function bezier_control(fm::Number, f0::Number, fp::Number, omega=1)
-    omegai = 1 / (1 - (fp - f0) / (f0 - fm))
-    omegap = 1 + 1 / (1 - (f0 - fm) / (fp - f0))
-    omega_min = max(min(omegai, omegap), 0.5)
-    omega_max = min(max(omegai, omegap), 1.0)
-    om = min(max(omega, omega_min), omega_max)
+    om = restrict_omega(fm, f0, fp, omega, true)
     fc = f0 + 0.5 * (om * (fp - f0) + (1 - om) * (f0 - fm))
     return fc
 end
@@ -161,23 +172,43 @@ function bezier_interp_2d(f::AbstractArray, x::Number, y::Number, omega=1)
     if ndims(f) != 2
         error("Field f must be 2D.")
     end
+    if (x < 1) || (x > size(f)[1])
+        error("Coordinate x ($x) out of bounds")
+    end
+    if (y < 1) || (y > size(f)[2])
+        error("Coordinate y ($y) out of bounds")
+    end
 
     # Central and adjacent indices
     idx0 = floor(Int, x)
-    idxm = idx0 - 1
-    idxp = idx0 + 1
     idy0 = floor(Int, y)
-    idym = idy0 - 1
-    idyp = idy0 + 1
+    if idx0 > 1
+        idxm = idx0 - 1
+        omegam = omega
+    else
+        idxm = 1
+        omegam = 1.0  # linear interpolation
+    end
+    if idx0 < size(f)[1]
+        idxp = idx0 + 1
+        omegap = omega
+    else
+        idxp = size(f)[1]
+        omegap = 1.0  # linear interpolation
+    end
+
+    idym = max(idy0-1, 1)
+    idyp = min(idy0+1, size(f)[2])
 
     # Interpolated values (fy) and coefficients (cy) for j-1, j, and j+1 rows
-    fxm, cxm = bezier_interp_1dv.(Ref(f[:,idym]), x, omega, true)
+    fxm, cxm = bezier_interp_1dv.(Ref(f[:,idym]), x, omegam, true)
     fx0, cx0 = bezier_interp_1dv.(Ref(f[:,idy0]), x, omega, true)
-    fxp, cxp = bezier_interp_1dv.(Ref(f[:,idyp]), x, omega, true)
+    fxp, cxp = bezier_interp_1dv.(Ref(f[:,idyp]), x, omegap, true)
 
     # Interpolation values (finterp) and coefficients (cx) along the y-axis 
     # at the x-value
-    fy, cy = bezier_interp_1d.(fxm, fx0, fxp, y, omega, true)
+    omegay = (idy0 == idym || idy0 == idyp) ? 1.0 : omega
+    fy, cy = bezier_interp_1d.(fxm, fx0, fxp, y, omegay, true)
 
     # 2D interpolation with all coefficients (Equation C.1)
     result = 
