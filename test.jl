@@ -64,15 +64,15 @@ function initialize_regular_grid(rank::Int, N::Int)
     empty_vec_grid = zeros(Tuple([dims;rank]))
     empty_tensor_grid = zeros(Tuple([dims;rank;rank]))
     result = grid(rank, dims,
-        empty_grid, # S
-        empty_vec_grid, # I
-        empty_grid, # B
-        empty_grid, # chi
-        empty_grid, # rho
-        empty_grid, # (T)emperature
-        empty_grid, # J
-        empty_vec_grid, # H
-        empty_tensor_grid # K
+        copy(empty_grid), # S
+        copy(empty_vec_grid), # I
+        copy(empty_grid), # B
+        copy(empty_grid), # chi
+        copy(empty_grid), # rho
+        copy(empty_grid), # (T)emperature
+        copy(empty_grid), # J
+        copy(empty_vec_grid), # H
+        copy(empty_tensor_grid) # K
         )
     return result
 end
@@ -88,9 +88,11 @@ function test_cell()
     rank = 3
     N = 10
     nmu = 4
-    omega = 1  # 0.5 (parabolic) -> 1.0 (linear) interpolation
+    omega = 0.5  # 0.5 (parabolic) -> 1.0 (linear) interpolation
     grid = initialize_regular_grid(rank, N)
+    grid.chi .= 0.1
+    grid.S[1,:,:] .= 1.0
     rays = calculate_ray_info(nmu)
     ijk = [2,2,2]
-    Inew, J, H, K = integrate_cell(grid.I, grid.S, grid.chi, ijk, rays, omega)
+    J, H, K = integrate_cell(grid.I, grid.S, grid.chi, ijk, rays, omega)
 end

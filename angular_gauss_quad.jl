@@ -14,15 +14,15 @@ Results in a na = nmu*(nmu+2) total number of rays
 """
 function ang_weights_mu(nmu, north_only=true, verbose=false)
 
-    if nmu % 2 == 1
+    if nmu == 2
+        # Trivial answer for one point
+        mu = sqrt(1/3)
+        w = 1.0
+        theta = acos(mu[1])
+        return [w,w], [mu,-mu], [theta,-theta]
+    elseif nmu % 2 == 1
         println("Number of polar angles must be even.  Setting n_mu = $nmu -> $(nmu+1)")
         nmu += 1
-    elseif nmu == 1
-        # Trivial answer for one point
-        mu = [sqrt(1/3)]
-        w = [1.0]
-        theta = [acos(mu[1])]
-        return w, mu, theta
     end
 
     na = nmu * (nmu+2)
@@ -124,7 +124,9 @@ See Bruls+ (1999), Appendix B.
 Note (Aug 2021): For testing, we take the simplification of having z as the preferred direction because we're on a Cartesian grid. This allows us to neglect the rotation invariance and define the points on co-latitude (at theta) circle evenly in longitude (phi).  In the future, we need to solve a system of linear equations for the class weights.
 """
 function calculate_ray_info(nmu::Int)
-    if nmu % 2 == 1
+    if nmu <= 1
+        error("nmu must be greater than 1")
+    elseif nmu % 2 == 1
         println("WARNING: Number of polar angles must be even.  Setting n_mu = $nmu -> $(nmu+1)")
         nmu += 1
     end

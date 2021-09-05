@@ -130,45 +130,46 @@ function integrate_cell(I::AbstractArray, S::AbstractArray, chi::AbstractArray, 
         rmask = rays["idir"] .== dim
         neg_rays = rmask .& (rays["isign"] .== -1)
         pos_rays = rmask .& (rays["isign"] .== +1)
-        # Interpolation (upwind) from -1 planes then +1 planes
+        # Interpolation from -1 planes then +1 planes
         idim = all_idim[dim][1]  # x-direction in plane
         jdim = all_idim[dim][2]  # y-direction
-        II = I[ijk_p[1], ijk_p[2], ijk_p[3], 1]
-        rs_neg = rstart[neg_rays,:]
-        re_neg = rend[neg_rays,:]
-        rs_pos = rstart[pos_rays,:]
-        re_pos = rend[pos_rays,:]
-        Ixu[neg_rays] .= bezier_interp_2d.(Ref(Ixm), rstart[neg_rays,idim], rstart[neg_rays,jdim])
-        Iyu[neg_rays] .= bezier_interp_2d.(Ref(Iym), rstart[neg_rays,idim], rstart[neg_rays,jdim])
-        Izu[neg_rays] .= bezier_interp_2d.(Ref(Izm), rstart[neg_rays,idim], rstart[neg_rays,jdim])
-        Su[neg_rays] .= bezier_interp_2d.(Ref(Sm), rstart[neg_rays,idim], rstart[neg_rays,jdim])
-        chiu[neg_rays] .= bezier_interp_2d.(Ref(chim), rstart[neg_rays,idim], rstart[neg_rays,jdim])
-        Ixu[pos_rays] .= bezier_interp_2d.(Ref(Ixp), rstart[pos_rays,idim], rstart[pos_rays,jdim])
-        Iyu[pos_rays] .= bezier_interp_2d.(Ref(Iyp), rstart[pos_rays,idim], rstart[pos_rays,jdim])
-        Izu[pos_rays] .= bezier_interp_2d.(Ref(Izp), rstart[pos_rays,idim], rstart[pos_rays,jdim])
-        Su[pos_rays] .= bezier_interp_2d.(Ref(Sp), rstart[pos_rays,idim], rstart[pos_rays,jdim])
-        chiu[pos_rays] .= bezier_interp_2d.(Ref(chip), rstart[pos_rays,idim], rstart[pos_rays,jdim])
-        # Downwind
-        Sd[neg_rays] .= bezier_interp_2d.(Ref(Sm), rend[neg_rays,idim], rstart[neg_rays,jdim])
-        chid[neg_rays] .= bezier_interp_2d.(Ref(chim), rend[neg_rays,idim], rstart[neg_rays,jdim])
+        # Upwind
+        # Rays traveling in positive direction (starting from -1 plane)
+        Ixu[pos_rays] .= bezier_interp_2d.(Ref(Ixm), rstart[pos_rays,idim], rstart[pos_rays,jdim])
+        Iyu[pos_rays] .= bezier_interp_2d.(Ref(Iym), rstart[pos_rays,idim], rstart[pos_rays,jdim])
+        Izu[pos_rays] .= bezier_interp_2d.(Ref(Izm), rstart[pos_rays,idim], rstart[pos_rays,jdim])
+        Su[pos_rays] .= bezier_interp_2d.(Ref(Sm), rstart[pos_rays,idim], rstart[pos_rays,jdim])
+        chiu[pos_rays] .= bezier_interp_2d.(Ref(chim), rstart[pos_rays,idim], rstart[pos_rays,jdim])
+        # Rays traveling in negative direction (starting from +1 plane)
+        Ixu[neg_rays] .= bezier_interp_2d.(Ref(Ixp), rstart[neg_rays,idim], rstart[neg_rays,jdim])
+        Iyu[neg_rays] .= bezier_interp_2d.(Ref(Iyp), rstart[neg_rays,idim], rstart[neg_rays,jdim])
+        Izu[neg_rays] .= bezier_interp_2d.(Ref(Izp), rstart[neg_rays,idim], rstart[neg_rays,jdim])
+        Su[neg_rays] .= bezier_interp_2d.(Ref(Sp), rstart[neg_rays,idim], rstart[neg_rays,jdim])
+        chiu[neg_rays] .= bezier_interp_2d.(Ref(chip), rstart[neg_rays,idim], rstart[neg_rays,jdim])
+        # Downwind (+1 plane then -1 plane)
         Sd[pos_rays] .= bezier_interp_2d.(Ref(Sp), rend[pos_rays,idim], rstart[pos_rays,jdim])
         chid[pos_rays] .= bezier_interp_2d.(Ref(chip), rend[pos_rays,idim], rstart[pos_rays,jdim])
+        Sd[neg_rays] .= bezier_interp_2d.(Ref(Sm), rend[neg_rays,idim], rstart[neg_rays,jdim])
+        chid[neg_rays] .= bezier_interp_2d.(Ref(chim), rend[neg_rays,idim], rstart[neg_rays,jdim])
     end
 
     # Duplicate source function and opacity at cell center for vectorization
-    Sp = ones(rays["na"]) * S[ijk[1], ijk[2], ijk[3]]
-    chip = ones(rays["na"]) * chi[ijk[1], ijk[2], ijk[3]]
+    # Sp and chip are reused from above (which are 2D slices)
+    S0 = ones(rays["na"]) * S[ijk[1], ijk[2], ijk[3]]
+    chi0 = ones(rays["na"]) * chi[ijk[1], ijk[2], ijk[3]]
     # Calculate interpolated upwind intensity on each ray normal (I cdot n)
+    I0 = zeros(rays["na"])
     @. I0 = Ixu * rays["mu"][:,1] + Iyu * rays["mu"][:,2] + Izu * rays["mu"][:,3]
     # Integrate the rays
-    Iray = integrate_ray.(I0, Su, Sp, Sd, chiu, chip, chid, rays["ds"], rays["ds"], omega)
+    Iray = integrate_ray.(I0, Su, S0, Sd, chiu, chi0, chid, rays["ds"], rays["ds"], omega)
 
-    # Update intensity and moments (J, H, K)
-    Inew = [sum(rays["mu"][:,i] .* Iray) for i = 1:3]
+    # Calculate moments (J, H, K)
+    # Note: Intensity in the Cartesian coordinate directions is the H-vector
+    #Inew = [sum(rays["mu"][:,i] .* Iray) for i = 1:3]
     J = sum(rays["w"] .* Iray)
     H = [sum(rays["w"] .* Iray .* rays["mu"][:,i]) for i = 1:3]
     K = reshape([sum(rays["w"] .* Iray .* rays["mu"][:,i] .* rays["mu"][:,j]) 
         for i = 1:3 for j = 1:3], (3,3))
     
-    return Inew, J, H, K
+    return J, H, K
 end
