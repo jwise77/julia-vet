@@ -123,16 +123,34 @@ Output: ray_info dictionary
 See Bruls+ (1999), Appendix B. 
 Note (Aug 2021): For testing, we take the simplification of having z as the preferred direction because we're on a Cartesian grid. This allows us to neglect the rotation invariance and define the points on co-latitude (at theta) circle evenly in longitude (phi).  In the future, we need to solve a system of linear equations for the class weights.
 """
-function calculate_ray_info(nmu::Int)
+function calculate_ray_info(nmu::Int, ndim=3)
     if nmu <= 1
         error("nmu must be greater than 1")
     elseif nmu % 2 == 1
         println("WARNING: Number of polar angles must be even.  Setting n_mu = $nmu -> $(nmu+1)")
         nmu += 1
     end
+    if ndim == 1
+        na = nmu
+    elseif ndim == 2
+        na = nmu * (nmu+2)/2
+    elseif ndim == 3
+        na = nmu * (nmu+2)
+    else
+        error("Bad dimension ($ndim)")
+    end
 
-    na = nmu * (nmu+2)
     w_z, mu_z, theta = ang_weights_mu(nmu)
+
+    # If one-dimensional, we're finished
+    if ndim == 1
+        isign = ones(na)
+        isign[div(na,2):end] .= -1
+        ray_info = Dict("nmu"=>nmu, "na"=>na, "w"=>w_z, "mu"=>mu_z, 
+            "ds"=>ones(na), "dr"=>ones(na), "idir"=>ones(na), 
+            "isign"=>isign)
+        return ray_info
+    end
     
     # Ray angle and weight arrays
     mu = zeros(na, 3)
@@ -155,10 +173,11 @@ function calculate_ray_info(nmu::Int)
         w[istart:iend] = ones(nj) .* w_z[j] ./ nj
     end
     # Copy to southern hemisphere
-    mu[iend+1:end,1] = mu[1:iend,1]
-    mu[iend+1:end,2] = mu[1:iend,2]
-    mu[iend+1:end,3] = -mu[1:iend,3]
-    w[iend+1:end] = w[1:iend]
+    if ndim == 3:
+        mu[iend+1:end,1] = mu[1:iend,1]
+        mu[iend+1:end,2] = mu[1:iend,2]
+        mu[iend+1:end,3] = -mu[1:iend,3]
+        w[iend+1:end] = w[1:iend]
 
     # Calculate intersection with cell faces (take cell width ds = 1)
     # Distance to neighboring xy-, xz-, yz-planes.
@@ -174,7 +193,7 @@ function calculate_ray_info(nmu::Int)
     # Pointing in positive or negative direction
     isign = [sign(dr[i,idir[i]]) for i = 1:na]
 
-    ray_info = Dict("nmu"=>nmu, "na"=>nmu*(nmu+2), "w"=>w, "mu"=>mu, 
+    ray_info = Dict("nmu"=>nmu, "na"=>na, "w"=>w, "mu"=>mu, 
         "ds"=>ds, "dr"=>dr, "idir"=>idir, "isign"=>isign)
 
     return ray_info
