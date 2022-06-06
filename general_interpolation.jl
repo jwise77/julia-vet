@@ -108,7 +108,7 @@ General interpolation routine: Only 1D currently
 Interpolate positions x (rank order) from field f (rank order)
 Assume that x are in units of cell widths (dx = 1)
 """
-    function interpolate(f, x, order=1)
+function interpolate(f, x, order=1)
     if order == 0
         interp_fn = interp_zero
     elseif order == 1

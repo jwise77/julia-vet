@@ -173,11 +173,12 @@ function calculate_ray_info(nmu::Int, ndim=3)
         w[istart:iend] = ones(nj) .* w_z[j] ./ nj
     end
     # Copy to southern hemisphere
-    if ndim == 3:
+    if ndim == 3
         mu[iend+1:end,1] = mu[1:iend,1]
         mu[iend+1:end,2] = mu[1:iend,2]
         mu[iend+1:end,3] = -mu[1:iend,3]
         w[iend+1:end] = w[1:iend]
+    end
 
     # Calculate intersection with cell faces (take cell width ds = 1)
     # Distance to neighboring xy-, xz-, yz-planes.

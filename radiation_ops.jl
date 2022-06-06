@@ -173,7 +173,7 @@ function integrate_cell_1d(I::AbstractArray, S::AbstractArray, chi::AbstractArra
     J = sum(rays["w"] .* Iray)
     H = [sum(rays["w"] .* Iray .* rays["mu"][:,i]) for i = 1:3]
     K = reshape([sum(rays["w"] .* Iray .* rays["mu"][:,i] .* rays["mu"][:,j]) 
-        for i = 1:3 for j = 1:3], (3,3)
+        for i = 1:3 for j = 1:3]) #, (3,3)
     
     return J, H, K
 end
@@ -276,7 +276,7 @@ function integrate_cell_2d(I::AbstractArray, S::AbstractArray, chi::AbstractArra
     J = sum(rays["w"] .* Iray)
     H = [sum(rays["w"] .* Iray .* rays["mu"][:,i]) for i = 1:3]
     K = reshape([sum(rays["w"] .* Iray .* rays["mu"][:,i] .* rays["mu"][:,j]) 
-        for i = 1:3 for j = 1:3], (3,3)
+        for i = 1:3 for j = 1:3])#, (3,3)
     
     return J, H, K
 end
