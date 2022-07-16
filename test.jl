@@ -85,14 +85,31 @@ function test_ray()
 end
 
 function test_cell()
-    rank = 3
+    rank = 2
     N = 10
     nmu = 4
     omega = 0.5  # 0.5 (parabolic) -> 1.0 (linear) interpolation
     grid = initialize_regular_grid(rank, N)
     grid.chi .= 0.1
-    grid.S[1,:,:] .= 1.0
+    if rank == 1
+        ijk = [2]
+        grid.S[1] = 1.0
+    elseif rank == 2
+        ijk = [2,2]
+        grid.S[1,:] .= 1.0
+    elseif rank == 3
+        ijk = [2,2,2]
+        grid.S[1,:,:] .= 1.0
+    end
     rays = calculate_ray_info(nmu)
-    ijk = [2,2,2]
-    J, H, K = integrate_cell(grid.I, grid.S, grid.chi, ijk, rays, omega)
+    if rank == 1
+        J, H, K = integrate_cell_1d(grid.I, grid.S, grid.chi, ijk, rays, omega)
+    elseif rank == 2
+        J, H, K = integrate_cell_2d(grid.I, grid.S, grid.chi, ijk, rays, omega)
+    elseif rank == 3
+        J, H, K = integrate_cell_3d(grid.I, grid.S, grid.chi, ijk, rays, omega)
+    end
 end
+
+break_on(:error)
+#test_cell()
